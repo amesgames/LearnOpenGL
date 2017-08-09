@@ -33,6 +33,8 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+#define USE_SHARED_CONTEXT 1
+
 int main()
 {
     // glfw: initialize and configure
@@ -49,7 +51,9 @@ int main()
 
 	// glfw dummy window creation
     // --------------------
-    GLFWwindow* dummy = glfwCreateWindow(1, 1, "Dummy", NULL, NULL);
+    GLFWwindow* dummy = NULL;
+#if USE_SHARED_CONTEXT
+	dummy = glfwCreateWindow(1, 1, "Dummy", NULL, NULL);
     if (dummy == NULL)
     {
         std::cout << "Failed to create dummy GLFW window" << std::endl;
@@ -57,16 +61,9 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(dummy);
+#endif
 
-	// glad: load all OpenGL function pointers
-    // ---------------------------------------
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-    {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        return -1;
-    }
-
-    // glfw window creation
+	// glfw window creation
     // --------------------
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, dummy);
     if (window == NULL)
@@ -76,9 +73,21 @@ int main()
         return -1;
     }
     glfwShowWindow(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+#if !USE_SHARED_CONTEXT
+	glfwMakeContextCurrent(window);
+#endif
+
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+
+	// glad: load all OpenGL function pointers
+    // ---------------------------------------
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -257,9 +266,11 @@ int main()
         // -----
         processInput(window);
 
+#if USE_SHARED_CONTEXT
 		// use shared context because that is what is holding our resources.
         // -----
 		glfwMakeContextCurrent(dummy);
+#endif
 
         // render
         // ------
@@ -297,6 +308,7 @@ int main()
         glBindVertexArray(0);
 
 #if 1
+#if USE_SHARED_CONTEXT
 		// use window context for presentation via blit.
         // -----
 		glfwMakeContextCurrent(window);
@@ -309,11 +321,14 @@ int main()
 		glBindRenderbuffer(GL_RENDERBUFFER, Colorbuffer);
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, SCR_WIDTH, SCR_HEIGHT);
 		glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, Colorbuffer);
+#endif
 
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		glBlitFramebuffer(0, 0, SCR_WIDTH, SCR_HEIGHT, 0, 0, SCR_WIDTH, SCR_HEIGHT, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
+#if USE_SHARED_CONTEXT
 		glDeleteFramebuffers(1, &readFramebuffer);
+#endif
 #else
         // now bind back to default framebuffer and draw a quad plane with the attached framebuffer color texture
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
